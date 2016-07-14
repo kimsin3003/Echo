@@ -88,15 +88,14 @@ namespace EchoServer
                 catch (SocketException e)
                 {
                     Console.WriteLine(ipAddress + " has exit");
+                    CloseSocket(socket);
+                    m_sockList.Remove(socket);
                     return;
                 }
                 catch(Exception e)
                 {
                     Console.WriteLine(e.ToString());
-                }
-                finally
-                {
-                    socket.Close();
+                    CloseSocket(socket);
                     m_sockList.Remove(socket);
                 }
 
@@ -117,13 +116,15 @@ namespace EchoServer
                 catch (SocketException e)
                 {
                     Console.WriteLine(ipAddress + " has exit");
-                    socket.Close();
+                    CloseSocket(socket);
                     m_sockList.Remove(socket);
                     break;
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
+                    CloseSocket(socket);
+                    m_sockList.Remove(socket);
                     break;
                 }
 
@@ -137,7 +138,20 @@ namespace EchoServer
             }
 
             return false;
+
         }
-        
+
+        private void CloseSocket(Socket socket)
+        {
+            socket.Shutdown(SocketShutdown.Both);
+            socket.Close();
+        }
+
+        public void ShutDown()
+        {
+            m_listenSock.Shutdown(SocketShutdown.Both);
+            m_listenSock.Close();
+        }
+
     }
 }

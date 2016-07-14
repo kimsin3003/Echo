@@ -54,7 +54,6 @@ namespace EchoClient
                 catch (SocketException e)
                 {
                     Console.WriteLine("Connection is closed");
-                    m_sock.Close();
                     break;
                 }
 
@@ -70,8 +69,6 @@ namespace EchoClient
                     catch (SocketException e)
                     {
                         Console.WriteLine("Connection is closed");
-                        m_sock.Shutdown(SocketShutdown.Both);
-                        m_sock.Close();
                         return;
                     }
                     
@@ -85,6 +82,12 @@ namespace EchoClient
 
                 Console.WriteLine("Server Return : " + data);
             }
+        }
+
+        public void ShutDown()
+        {
+            m_sock.Shutdown(SocketShutdown.Both);
+            m_sock.Close();
         }
 
     }
