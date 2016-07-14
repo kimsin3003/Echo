@@ -12,11 +12,13 @@ namespace EchoClient
         private IPEndPoint m_ipEndPoint;
         private Socket m_sock;
 
-        public Client()
+        public Client(string serverHostName, int port)
         {
-            m_ipHost = Dns.Resolve("localhost");
-            m_ipAddr = m_ipHost.AddressList[0];
-            m_ipEndPoint = new IPEndPoint(m_ipAddr, 11000);
+            m_ipHost = Dns.GetHostEntry(serverHostName);
+            m_ipAddr = m_ipHost.AddressList[1];             //In index 0, there's ipv6 address.
+            foreach(var el in m_ipHost.AddressList)
+                Console.WriteLine(el.ToString());
+            m_ipEndPoint = new IPEndPoint(m_ipAddr, port);
         }
 
         public void MakeConnection()
@@ -59,7 +61,7 @@ namespace EchoClient
                 string data = "";
                 while (true)
                 {
-                    byte[] bytes = new byte[1024];
+                    byte[] bytes = new byte[200];
                     int bytesRec = 0;
                     try
                     {
@@ -68,6 +70,7 @@ namespace EchoClient
                     catch (SocketException e)
                     {
                         Console.WriteLine("Connection is closed");
+                        m_sock.Shutdown(SocketShutdown.Both);
                         m_sock.Close();
                         return;
                     }

@@ -13,15 +13,13 @@ namespace EchoServer
         private int m_maxClientNum;
         private ArrayList m_sockList;
 
-        public Server()
+        public Server(int port)
         {
-            m_ipEndPoint = new IPEndPoint(IPAddress.Any, 11000);
+            m_ipEndPoint = new IPEndPoint(IPAddress.Any, port);
             m_listenSock = null;
             m_sockList = new ArrayList();
             m_maxClientNum = 10;
-            
         }
-
         public void MakeListener()
         {
             m_listenSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -53,69 +51,92 @@ namespace EchoServer
         {
             while (true)
             {
-                ArrayList onRequestSock = new ArrayList(m_sockList);
-                Socket.Select(onRequestSock, null, null, 1000);
+                ArrayList onRequestSocks = new ArrayList(m_sockList);
+                Socket.Select(onRequestSocks, null, null, 1000);
 
-                for(int i = 0; i < onRequestSock.Count; i++)
+                for (int i = 0; i < onRequestSocks.Count; i++)
                 {
 
-                    if(onRequestSock[i] == m_listenSock)
-                    {
-                        Socket newClient = ((Socket)onRequestSock[i]).Accept();
-                        IPAddress clientIP = IPAddress.Parse(((IPEndPoint)newClient.RemoteEndPoint).Address.ToString());
-                        Console.WriteLine("Client(" + clientIP + ") has come");
-                        m_sockList.Add(newClient);
-                    }
-                    else
-                    {
-                        bool isClosed = false;
-                        string data = "";
-                        Socket connection = ((Socket)onRequestSock[i]);
-                        IPAddress ipAddress = IPAddress.Parse(((IPEndPoint)connection.RemoteEndPoint).Address.ToString());
-                        while (true)
-                        {
-                            byte[] bytes = new byte[1024];
-                            int bytesRec = 0;
-                            try
-                            {
-                                bytesRec = connection.Receive(bytes);
-                            }
-                            catch(SocketException e)
-                            {
-                                Console.WriteLine(ipAddress + " has exit");
-                                connection.Close();
-                                m_sockList.Remove(connection);
-                                isClosed = true;
-                                break;
-                            }
-                            data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
-
-                            if (data.IndexOf("\n") > -1)
-                            {
-                                break;
-                            }
-
-                        }
-                        if (isClosed)
-                            break;
-
-                        byte[] msg = Encoding.UTF8.GetBytes(data);
-                        Console.WriteLine("Data from " + ipAddress + " : " + data);
-                        try
-                        {
-                            connection.Send(msg);
-                        }
-                        catch (SocketException e)
-                        {
-                            Console.WriteLine(ipAddress + " has exit");
-                            connection.Close();
-                            m_sockList.Remove(connection);
-                            break;
-                        }
-
-                    }
+                    ProcessSocket((Socket)onRequestSocks[i]);
                 }
             }
+        }
+
+        private void ProcessSocket(Socket socket)
+        {
+            if (socket == m_listenSock)
+            {
+                Socket newClient = socket.Accept();
+                IPAddress clientIP = IPAddress.Parse(((IPEndPoint)newClient.RemoteEndPoint).Address.ToString());
+                Console.WriteLine("Client(" + clientIP + ") has come");
+                m_sockList.Add(newClient);
+            }
+            else
+            {
+                string data = "";
+                
+                if (!ReceiveMessage(socket, ref data))
+                    return;
+
+                IPAddress ipAddress = IPAddress.Parse(((IPEndPoint)socket.RemoteEndPoint).Address.ToString());
+                byte[] msg = Encoding.UTF8.GetBytes(data);
+                Console.WriteLine("Data from " + ipAddress + " : " + data);
+                try
+                {
+                    socket.Send(msg);
+                }
+                catch (SocketException e)
+                {
+                    Console.WriteLine(ipAddress + " has exit");
+                    return;
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+                finally
+                {
+                    socket.Close();
+                    m_sockList.Remove(socket);
+                }
+
+            }
+        }
+
+        private bool ReceiveMessage(Socket socket,ref String message)
+        {
+            IPAddress ipAddress = IPAddress.Parse(((IPEndPoint)socket.RemoteEndPoint).Address.ToString());
+            while (true)
+            {
+                byte[] bytes = new byte[200];
+                int bytesRec = 0;
+                try
+                {
+                    bytesRec = socket.Receive(bytes);
+                }
+                catch (SocketException e)
+                {
+                    Console.WriteLine(ipAddress + " has exit");
+                    socket.Close();
+                    m_sockList.Remove(socket);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                    break;
+                }
+
+                message += Encoding.UTF8.GetString(bytes, 0, bytesRec);
+
+                if (message.IndexOf("\n") > -1)
+                {
+                    return true;
+                }
+
+            }
+
+            return false;
         }
         
     }

@@ -11,7 +11,7 @@ namespace EchoClient
         public static void Main(string[] args)
         {
 
-            Client client = new Client();
+            Client client = new Client("localhost", 11000);
             client.MakeConnection();
             client.Start();
         }

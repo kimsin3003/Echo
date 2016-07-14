@@ -11,7 +11,7 @@ namespace EchoServer
         static void Main(string[] args)
         {
 
-            Server server = new Server();
+            Server server = new Server(11000);
             server.MakeListener();
             server.Start();
             
