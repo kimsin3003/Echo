@@ -15,13 +15,13 @@ namespace EchoClient
         public Client(string serverHostName, int port)
         {
             m_ipHost = Dns.GetHostEntry(serverHostName);
-            m_ipAddr = m_ipHost.AddressList[1];             //In index 0, there's ipv6 address.
+            m_ipAddr = m_ipHost.AddressList[1];     //In index 0, there's ipv6 address.
             foreach(var el in m_ipHost.AddressList)
                 Console.WriteLine(el.ToString());
             m_ipEndPoint = new IPEndPoint(m_ipAddr, port);
         }
 
-        public void MakeConnection()
+        public void Connect()
         {
             m_sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
@@ -35,6 +35,47 @@ namespace EchoClient
 
 
         }
+        private void Receive()
+        {
+            string data = "";
+            while (true)
+            {
+                byte[] bytes = new byte[40];
+                int bytesRec = 0;
+                try
+                {
+                    bytesRec = m_sock.Receive(bytes);
+                }
+                catch (SocketException e)
+                {
+                    Console.WriteLine("Connection is closed");
+                    return;
+                }
+
+                data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
+                if (data.IndexOf("\n") > -1)
+                {
+                    break;
+                }
+
+            }
+
+            Console.WriteLine("Server Return : " + data);
+        }
+
+        private void Send(string input)
+        {
+            byte[] msg = Encoding.UTF8.GetBytes(input + "\n");
+            try
+            {
+                m_sock.Send(msg);
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine("Connection is closed");
+                return;
+            }
+        }
 
         public void Start()
         {
@@ -46,41 +87,9 @@ namespace EchoClient
                 if (input == "quit")
                     return;
 
-                byte[] msg = Encoding.UTF8.GetBytes(input + "\n");
-                try
-                {
-                    m_sock.Send(msg);
-                }
-                catch (SocketException e)
-                {
-                    Console.WriteLine("Connection is closed");
-                    break;
-                }
+                Send(input);
 
-                string data = "";
-                while (true)
-                {
-                    byte[] bytes = new byte[200];
-                    int bytesRec = 0;
-                    try
-                    {
-                        bytesRec = m_sock.Receive(bytes);
-                    }
-                    catch (SocketException e)
-                    {
-                        Console.WriteLine("Connection is closed");
-                        return;
-                    }
-                    
-                    data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
-                    if (data.IndexOf("\n") > -1)
-                    {
-                        break;
-                    }
-
-                }
-
-                Console.WriteLine("Server Return : " + data);
+                Receive();
             }
         }
 

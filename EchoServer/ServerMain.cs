@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace EchoServer
+﻿namespace EchoServer
 {
     class ServerMain
     {
@@ -12,7 +6,6 @@ namespace EchoServer
         {
 
             Server server = new Server(11000);
-            server.MakeListener();
             server.Start();
             
         }

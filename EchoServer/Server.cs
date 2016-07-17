@@ -2,7 +2,8 @@
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
-using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace EchoServer
 {
@@ -11,16 +12,24 @@ namespace EchoServer
         private IPEndPoint m_ipEndPoint;
         private Socket m_listenSock;
         private int m_maxClientNum;
-        private ArrayList m_sockList;
+        private SessionManager m_sessionManager;
+        Thread acceptingThread;
 
         public Server(int port)
         {
             m_ipEndPoint = new IPEndPoint(IPAddress.Any, port);
             m_listenSock = null;
-            m_sockList = new ArrayList();
             m_maxClientNum = 10;
+            m_sessionManager = new SessionManager();
         }
-        public void MakeListener()
+
+        public void ShutDown()
+        {
+            m_listenSock.Shutdown(SocketShutdown.Both);
+            m_listenSock.Close();
+        }
+
+        public void StartListen()
         {
             m_listenSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
@@ -36,9 +45,6 @@ namespace EchoServer
                 {
                     Console.WriteLine(e.ToString());
                 }
-
-                m_sockList.Add(m_listenSock);
-         
             }
             catch (Exception e)
             {
@@ -49,62 +55,68 @@ namespace EchoServer
 
         public void Start()
         {
+            StartListen();
+            acceptingThread = new Thread(new ThreadStart(CreateNewSession));
+            acceptingThread.Start();
+
             while (true)
             {
-                ArrayList onRequestSocks = new ArrayList(m_sockList);
-                Socket.Select(onRequestSocks, null, null, 1000);
-
-                for (int i = 0; i < onRequestSocks.Count; i++)
-                {
-
-                    ProcessSocket((Socket)onRequestSocks[i]);
-                }
+                ProcessReadableSession();
             }
         }
 
-        private void ProcessSocket(Socket socket)
+        private void CreateNewSession()
         {
-            if (socket == m_listenSock)
+            while(true)
             {
-                Socket newClient = socket.Accept();
-                IPAddress clientIP = IPAddress.Parse(((IPEndPoint)newClient.RemoteEndPoint).Address.ToString());
-                Console.WriteLine("Client(" + clientIP + ") has come");
-                m_sockList.Add(newClient);
-            }
-            else
-            {
-                string data = "";
-                
-                if (!ReceiveMessage(socket, ref data))
-                    return;
-
-                IPAddress ipAddress = IPAddress.Parse(((IPEndPoint)socket.RemoteEndPoint).Address.ToString());
-                byte[] msg = Encoding.UTF8.GetBytes(data);
-                Console.WriteLine("Data from " + ipAddress + " : " + data);
-                try
-                {
-                    socket.Send(msg);
-                }
-                catch (SocketException e)
-                {
-                    Console.WriteLine(ipAddress + " has exit");
-                    CloseSocket(socket);
-                    m_sockList.Remove(socket);
-                    return;
-                }
-                catch(Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                    CloseSocket(socket);
-                    m_sockList.Remove(socket);
-                }
-
+                Socket newClient = m_listenSock.Accept();
+                Session session = m_sessionManager.AddSession(newClient);
+                Console.WriteLine(session.id + "(" + session.ip + ")" + " has come");
             }
         }
 
-        private bool ReceiveMessage(Socket socket,ref String message)
+        private void ProcessReadableSession()
         {
-            IPAddress ipAddress = IPAddress.Parse(((IPEndPoint)socket.RemoteEndPoint).Address.ToString());
+            List<Session> readableSessions;
+            readableSessions = m_sessionManager.GetReadableSessions();
+            
+            foreach (Session session in readableSessions)
+            {
+                string data = null;
+                bool ret = ReceiveMessage(session, out data);
+
+                if (!ret)
+                    continue;
+
+                SendEcho(session, data);
+            }
+            
+        }
+
+        private void SendEcho(Session session, String message)
+        {
+            IPAddress ipAddress = session.ip;
+            byte[] msg = Encoding.UTF8.GetBytes(message);
+
+            try
+            {
+                session.socket.Send(msg);
+            }
+            catch (SocketException)
+            {
+                m_sessionManager.RemoveSession(session);
+            }
+            catch (Exception e)
+            {
+                m_sessionManager.RemoveSession(session);
+            }
+        }
+
+        private bool ReceiveMessage(Session session, out String message)
+        {
+            message = "";
+            Socket socket = session.socket;
+            IPAddress ipAddress = session.ip;
             while (true)
             {
                 byte[] bytes = new byte[200];
@@ -113,18 +125,15 @@ namespace EchoServer
                 {
                     bytesRec = socket.Receive(bytes);
                 }
-                catch (SocketException e)
+                catch (SocketException)
                 {
-                    Console.WriteLine(ipAddress + " has exit");
-                    CloseSocket(socket);
-                    m_sockList.Remove(socket);
+                    m_sessionManager.RemoveSession(session);
                     break;
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
-                    CloseSocket(socket);
-                    m_sockList.Remove(socket);
+                    m_sessionManager.RemoveSession(session);
                     break;
                 }
 
@@ -132,6 +141,7 @@ namespace EchoServer
 
                 if (message.IndexOf("\n") > -1)
                 {
+                    Console.WriteLine("Data from " + ipAddress + " : " + message);
                     return true;
                 }
 
@@ -146,12 +156,5 @@ namespace EchoServer
             socket.Shutdown(SocketShutdown.Both);
             socket.Close();
         }
-
-        public void ShutDown()
-        {
-            m_listenSock.Shutdown(SocketShutdown.Both);
-            m_listenSock.Close();
-        }
-
     }
 }
