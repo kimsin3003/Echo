@@ -69,9 +69,12 @@ namespace EchoServer
         {
             while(true)
             {
-                Socket newClient = m_listenSock.Accept();
-                Session session = m_sessionManager.AddSession(newClient);
-                Console.WriteLine(session.id + "(" + session.ip + ")" + " has come");
+                if(m_listenSock.Poll(-1, SelectMode.SelectRead))
+                {
+                    Socket newClient = m_listenSock.Accept();
+                    Session session = m_sessionManager.AddSession(newClient);
+                    Console.WriteLine(session.id + "(" + session.ip + ")" + " has come");
+                }
             }
         }
 

@@ -48,30 +48,30 @@ namespace EchoServer
             List<Session> readableSessions = new List<Session>();
             List<Session> closedSessions = new List<Session>();
             List<Session> sessions;
+            List<Socket> ss = new List<Socket>();
 
             lock (m_sessions)
             {
-                sessions = m_sessions;
+                sessions = new List<Session>(m_sessions);
             }
-
-            foreach(Session session in sessions)
+            
+            foreach (Session session in sessions)
             {
-                if(!session.socket.Connected)
+                Socket socket = session.socket;
+                
+                if (socket.Poll(10, SelectMode.SelectRead))
                 {
-                    closedSessions.Add(session);
-                    continue;
-                }
+                    if (socket.Available == 0)
+                    {
+                        RemoveSession(session);
+                        continue;
+                    }
+                    if (socket.Available > 0)
+                        readableSessions.Add(session);
 
-                if (session.socket.Available > 0)
-                {
-                    readableSessions.Add(session);
                 }
             }
 
-            foreach (Session session in closedSessions)
-            {
-                RemoveSession(session);
-            }
             return readableSessions;
         }
 
