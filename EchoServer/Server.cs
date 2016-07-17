@@ -56,7 +56,7 @@ namespace EchoServer
         public void Start()
         {
             StartListen();
-            acceptingThread = new Thread(new ThreadStart(CreateNewSession));
+            acceptingThread = new Thread(new ThreadStart(Listen));
             acceptingThread.Start();
 
             while (true)
@@ -65,10 +65,12 @@ namespace EchoServer
             }
         }
 
-        private void CreateNewSession()
+        private void Listen()
         {
             while (true)
             {
+                if (m_listenSock == null)
+                    return;
                 if (m_listenSock.Poll(10, SelectMode.SelectRead))
                 {
                     Socket newClient = m_listenSock.Accept();

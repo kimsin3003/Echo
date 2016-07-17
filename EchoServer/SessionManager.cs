@@ -34,16 +34,16 @@ namespace EchoServer
             {
                 Socket socket = session.socket;
                 
-                if (socket.Poll(10, SelectMode.SelectRead))
+                //Although it's not listening socket
+                if (socket.Poll(10, SelectMode.SelectRead)) //It has something to read,
                 {
-                    if (socket.Available == 0)
+                    if (socket.Available == 0) //but don't have any message to read. --> Connection has failed.
                     {
                         RemoveSession(session);
                         continue;
                     }
                     if (socket.Available > 0)
                         readableSessions.Add(session);
-
                 }
             }
 
