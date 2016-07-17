@@ -12,7 +12,6 @@ namespace EchoClient
         {
 
             Client client = new Client("localhost", 11000);
-            client.Connect();
             client.Start();
             client.ShutDown();
         }

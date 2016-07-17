@@ -1,35 +1,10 @@
 ﻿using System;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
-using System.Threading;
 
 namespace EchoServer
 {
-    class Session
-    {
-        public Socket socket;
-        public string id;
-        public IPAddress ip;
-        public Thread thread;
-        public Session()
-        {
-            socket = null;
-            id = null;
-            ip = null;
-            thread = null;
-        }
-
-        public Session(Session session)
-        {
-            socket = session.socket;
-            id = "" + session.id;
-            ip = new IPAddress(session.ip.Address);
-            thread = session.thread;
-        }
-    }
-
     class SessionManager
     {
         private List<Session> m_sessions;
@@ -83,7 +58,7 @@ namespace EchoServer
             lock (m_sessions)
             {
                 int count = m_idCount.Dequeue();
-                newSession.id = "Client" + count;
+                newSession.id = count;
                 m_idCount.Enqueue(count + 1);
                 newSession.ip = IPAddress.Parse(((IPEndPoint)socket.RemoteEndPoint).Address.ToString());
            
@@ -97,7 +72,8 @@ namespace EchoServer
         {
             lock(m_sessions)
             {
-                Console.WriteLine(session.id + " has exit");
+                Console.WriteLine("Client" + session.id + "(" + session.ip + ") has exit");
+                m_idCount.Enqueue(session.id);
                 session.socket.Close();
                 m_sessions.Remove(session);
             }

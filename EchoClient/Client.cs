@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Net;
 using System.Text;
+using System.Threading;
 
 namespace EchoClient
 {
@@ -21,21 +22,29 @@ namespace EchoClient
             m_ipEndPoint = new IPEndPoint(m_ipAddr, port);
         }
 
-        public void Connect()
+        public bool Connect()
         {
             m_sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
             {
                 m_sock.Connect(m_ipEndPoint);
             }
+            catch (SocketException)
+            {
+                Console.WriteLine("Server is Out");
+                return false;
+            }
             catch (Exception e)
             {
                 Console.WriteLine(e.ToString());
+                return false;
             }
 
-
+            Console.WriteLine("Connected to server");
+            return true;
         }
-        private void Receive()
+
+        private bool Receive()
         {
             string data = "";
             while (true)
@@ -49,21 +58,24 @@ namespace EchoClient
                 catch (SocketException e)
                 {
                     Console.WriteLine("Connection is closed");
-                    return;
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                    return false;
                 }
 
                 data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
                 if (data.IndexOf("\n") > -1)
                 {
-                    break;
+                    Console.WriteLine("Server Return : " + data);
+                    return true;
                 }
-
             }
-
-            Console.WriteLine("Server Return : " + data);
         }
 
-        private void Send(string input)
+        private bool Send(string input)
         {
             byte[] msg = Encoding.UTF8.GetBytes(input + "\n");
             try
@@ -73,23 +85,35 @@ namespace EchoClient
             catch (SocketException e)
             {
                 Console.WriteLine("Connection is closed");
-                return;
+                return false;
             }
+            return true;
         }
 
         public void Start()
         {
             while(true)
             {
-                Console.Write("Message: ");
-                string input = Console.ReadLine();
+                if (!Connect())
+                {
+                    Thread.Sleep(1000);
+                    continue;
+                }
 
-                if (input == "quit")
-                    return;
+                while (true)
+                {
+                    Console.Write("Message: ");
+                    string input = Console.ReadLine();
 
-                Send(input);
+                    if (input == "quit")
+                        return;
 
-                Receive();
+                    if (!Send(input))
+                        break;
+
+                    if (!Receive())
+                        break;
+                }
             }
         }
 

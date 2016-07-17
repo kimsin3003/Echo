@@ -41,7 +41,7 @@ namespace EchoServer
                     m_listenSock.Listen(m_maxClientNum);
                     Console.WriteLine("Start Listening");
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
                 }
@@ -67,13 +67,13 @@ namespace EchoServer
 
         private void CreateNewSession()
         {
-            while(true)
+            while (true)
             {
-                if(m_listenSock.Poll(-1, SelectMode.SelectRead))
+                if (m_listenSock.Poll(10, SelectMode.SelectRead))
                 {
                     Socket newClient = m_listenSock.Accept();
                     Session session = m_sessionManager.AddSession(newClient);
-                    Console.WriteLine(session.id + "(" + session.ip + ")" + " has come");
+                    Console.WriteLine("Client" + session.id + "(" + session.ip + ")" + " has come");
                 }
             }
         }
@@ -82,7 +82,7 @@ namespace EchoServer
         {
             List<Session> readableSessions;
             readableSessions = m_sessionManager.GetReadableSessions();
-            
+
             foreach (Session session in readableSessions)
             {
                 string data = null;
@@ -93,7 +93,7 @@ namespace EchoServer
 
                 SendEcho(session, data);
             }
-            
+
         }
 
         private void SendEcho(Session session, String message)
@@ -111,6 +111,7 @@ namespace EchoServer
             }
             catch (Exception e)
             {
+                Console.WriteLine(e.ToString());
                 m_sessionManager.RemoveSession(session);
             }
         }
@@ -144,7 +145,7 @@ namespace EchoServer
 
                 if (message.IndexOf("\n") > -1)
                 {
-                    Console.WriteLine("Data from " + ipAddress + " : " + message);
+                    Console.WriteLine("Data from Client" + session.id + " : " + message);
                     return true;
                 }
 
