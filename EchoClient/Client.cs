@@ -31,7 +31,7 @@ namespace EchoClient
             }
             catch (SocketException)
             {
-                Console.WriteLine("Server is Out");
+                Console.WriteLine("Server is Off");
                 return false;
             }
             catch (Exception e)

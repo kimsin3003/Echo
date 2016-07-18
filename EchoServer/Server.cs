@@ -13,7 +13,7 @@ namespace EchoServer
         private Socket m_listenSock;
         private int m_maxClientNum;
         private SessionManager m_sessionManager;
-        Thread acceptingThread;
+        Thread m_acceptingThread;
 
         public Server(int port)
         {
@@ -56,8 +56,8 @@ namespace EchoServer
         public void Start()
         {
             StartListen();
-            acceptingThread = new Thread(new ThreadStart(Listen));
-            acceptingThread.Start();
+            m_acceptingThread = new Thread(new ThreadStart(Listen));
+            m_acceptingThread.Start();
 
             while (true)
             {

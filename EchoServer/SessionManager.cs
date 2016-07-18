@@ -61,7 +61,6 @@ namespace EchoServer
                 newSession.id = count;
                 m_idCount.Enqueue(count + 1);
                 newSession.ip = IPAddress.Parse(((IPEndPoint)socket.RemoteEndPoint).Address.ToString());
-           
                 m_sessions.Add(newSession);
             }
 
