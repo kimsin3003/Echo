@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading;
+using System.Collections.Generic;
 
 namespace EchoClient
 {
@@ -22,6 +23,7 @@ namespace EchoClient
             m_ipEndPoint = new IPEndPoint(m_ipAddr, port);
         }
 
+        /**make me XML**/
         public bool Connect()
         {
             m_sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -44,18 +46,29 @@ namespace EchoClient
             return true;
         }
 
-        private bool Receive()
+        private bool ReceiveMessage()
         {
-            string data = "";
-            while (true)
+            Socket socket = m_sock;
+            IPAddress ipAddress = m_ipAddr;
+            string leftData = null;         //left data that didn't make message shape
+            byte[] buf = new byte[1024];
+          
+            while(true)
             {
-                byte[] bytes = new byte[40];
+                string data = "";
+                if (leftData != null)
+                {
+                    data = leftData;
+                    leftData = null;
+                }
+
                 int bytesRec = 0;
+
                 try
                 {
-                    bytesRec = m_sock.Receive(bytes);
+                    bytesRec = socket.Receive(buf);
                 }
-                catch (SocketException e)
+                catch (SocketException)
                 {
                     Console.WriteLine("Connection is closed");
                     return false;
@@ -66,18 +79,30 @@ namespace EchoClient
                     return false;
                 }
 
-                data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
-                if (data.IndexOf("\n") > -1)
+                data += Encoding.UTF8.GetString(buf, 0, bytesRec);
+
+                int index = -1;
+                while ((index = data.IndexOf("<eom>")) > -1)     //If data has end of message,
                 {
-                    Console.WriteLine("Server Return : " + data);
-                    return true;
+                    string messageFragment = data.Substring(0, index);
+                    Console.WriteLine("Server Return : " + messageFragment);
+
+                    int lengthOfEOM = 5;
+                    int lengthOfRealData = index + 1;
+                    if (data.Length > lengthOfRealData + lengthOfEOM)  //If more data has come, 
+                        data = data.Substring(index + lengthOfEOM);       //erase already printed data.
+                    else
+                        return true;
                 }
+
+                //left data that doesn't have any end of message
+                leftData = data;
             }
         }
 
         private bool Send(string input)
         {
-            byte[] msg = Encoding.UTF8.GetBytes(input + "\n");
+            byte[] msg = Encoding.UTF8.GetBytes(input + "<eom>");
             try
             {
                 m_sock.Send(msg);
@@ -111,8 +136,11 @@ namespace EchoClient
                     if (!Send(input))
                         break;
 
-                    if (!Receive())
-                        break;
+                    while(m_sock.Poll(10000, SelectMode.SelectRead))
+                    {
+                        if (!ReceiveMessage())
+                            break;
+                    }
                 }
             }
         }

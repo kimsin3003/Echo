@@ -87,13 +87,14 @@ namespace EchoServer
 
             foreach (Session session in readableSessions)
             {
-                string data = null;
-                bool ret = ReceiveMessage(session, out data);
+                List<string> messages = null;
+                bool ret = ReceiveMessage(session, out messages);
 
                 if (!ret)
                     continue;
-
-                SendEcho(session, data);
+                
+                foreach(string message in messages)
+                    SendEcho(session, message);
             }
 
         }
@@ -101,7 +102,7 @@ namespace EchoServer
         private void SendEcho(Session session, String message)
         {
             IPAddress ipAddress = session.ip;
-            byte[] msg = Encoding.UTF8.GetBytes(message);
+            byte[] msg = Encoding.UTF8.GetBytes(message + "<eom>");
 
             try
             {
@@ -118,43 +119,63 @@ namespace EchoServer
             }
         }
 
-        private bool ReceiveMessage(Session session, out String message)
+        private bool ReceiveMessage(Session session, out List<string> messages)
         {
-            message = "";
             Socket socket = session.socket;
             IPAddress ipAddress = session.ip;
-            while (true)
+            byte[] buf = new byte[1024];
+
+            messages = new List<string>();
+
+            string data = "";
+            if (session.leftData != null)
             {
-                byte[] bytes = new byte[200];
-                int bytesRec = 0;
-                try
-                {
-                    bytesRec = socket.Receive(bytes);
-                }
-                catch (SocketException)
-                {
-                    m_sessionManager.RemoveSession(session);
-                    break;
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                    m_sessionManager.RemoveSession(session);
-                    break;
-                }
-
-                message += Encoding.UTF8.GetString(bytes, 0, bytesRec);
-
-                if (message.IndexOf("\n") > -1)
-                {
-                    Console.WriteLine("Data from Client" + session.id + " : " + message);
-                    return true;
-                }
-
+                data = session.leftData;
+                session.leftData = null;
             }
 
-            return false;
+            int bytesRec = 0;
 
+            try
+            {
+                bytesRec = socket.Receive(buf);
+            }
+            catch (SocketException)
+            {
+                m_sessionManager.RemoveSession(session);
+                return false;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                m_sessionManager.RemoveSession(session);
+                return false;
+            }
+
+            data += Encoding.UTF8.GetString(buf, 0, bytesRec);
+
+            int index = -1;
+            while((index = data.IndexOf("<eom>")) > -1)                 //If data has end of message,
+            {
+                string messageFragment = data.Substring(0, index);
+                    
+                messages.Add(messageFragment);                          //insert data fragment
+                Console.WriteLine("Data from Client" + session.id + " : " + messageFragment);
+
+                int lengthOfEOM = 5;
+                int lengthOfRealData = index + 1;
+
+                if (data.Length > lengthOfRealData + lengthOfEOM)       //If more data has come, 
+                    data = data.Substring(index + lengthOfEOM);         //erase data stored in messages.
+                else
+                    data = "";
+            }
+
+            if(data.Length > 0)                                         //If data doesn't have any EOM, store the data in session.
+            {
+                session.leftData = data;
+            }
+            return true;
         }
 
         private void CloseSocket(Socket socket)
